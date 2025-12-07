@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check:*)",
+      "Bash(dir:*)",
+      "Bash(npm run build:*)",
+      "Bash(node generate-schedule.js:*)",
+      "Bash(sqlite3:*)",
+      "Bash(node migrate-add-approval.js:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

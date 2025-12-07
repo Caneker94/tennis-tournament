@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm start)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(npm run seed:*)",
+      "Bash(npm run seed:players:*)",
+      "Bash(del tournament.db)",
+      "Bash(node migrate-db.js:*)",
+      "Bash(npm run generate:schedule:*)",
+      "Bash(npm run migrate:venue:*)",
+      "Bash(taskkill /PID 45068 /F)",
+      "Bash(powershell \"Stop-Process -Id 45068 -Force\")",
+      "Bash(taskkill:*)",
+      "Bash(powershell \"Stop-Process -Id 50336 -Force\")",
+      "Bash(node -e:*)",
+      "Bash(powershell \"Get-Process node | Stop-Process -Force\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
