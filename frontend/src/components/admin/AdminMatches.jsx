@@ -7,13 +7,21 @@ function AdminMatches() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState(null);
+  const [editingMatch, setEditingMatch] = useState(null);
   const [groupPlayers, setGroupPlayers] = useState([]);
   const [formData, setFormData] = useState({
     group_id: '',
     player1_id: '',
     player2_id: '',
     match_date: '',
-    week_number: 1
+    week_number: 1,
+    venue: '',
+    match_time: ''
+  });
+  const [editData, setEditData] = useState({
+    venue: '',
+    match_date: '',
+    match_time: ''
   });
   const [scoreData, setScoreData] = useState({
     player1_set1: '',
@@ -27,15 +35,48 @@ function AdminMatches() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [filterWeek, setFilterWeek] = useState('');
+  const [filterPeriod, setFilterPeriod] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
-  const [weeks, setWeeks] = useState([]);
+  const [periods, setPeriods] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [allMatches, setAllMatches] = useState([]);
+
+  const venues = [
+    'Unisport',
+    'Aslanlar',
+    'Podyum',
+    'Park Akademi',
+    'Evrensel',
+    'Yenigün',
+    'Gd Sport Academy',
+    'Esas',
+    'Meşelipark',
+    'Gümüş Raket',
+    'Altınşehir',
+    'Şahinkaya',
+    'Diğer'
+  ];
+
+  // Helper function to get period from week number
+  function getWeekPeriod(weekNumber) {
+    if (weekNumber <= 2) return 1;
+    if (weekNumber <= 4) return 2;
+    if (weekNumber <= 6) return 3;
+    return 4;
+  }
+
+  // Helper function to get period label
+  function getWeekPeriodLabel(period) {
+    if (period === 1) return 'Hafta 1-2';
+    if (period === 2) return 'Hafta 3-4';
+    if (period === 3) return 'Hafta 5-6';
+    return 'Hafta 7';
+  }
 
   useEffect(() => {
     loadData();
     loadCategories();
-  }, [filterWeek, filterCategory]);
+  }, [filterCategory]);
 
   useEffect(() => {
     if (formData.group_id) {
@@ -43,23 +84,41 @@ function AdminMatches() {
     }
   }, [formData.group_id]);
 
+  useEffect(() => {
+    // Filter matches when period filter changes
+    if (filterPeriod) {
+      const filteredMatches = allMatches.filter(m => getWeekPeriod(m.week_number) === parseInt(filterPeriod));
+      setMatches(filteredMatches);
+    } else {
+      setMatches(allMatches);
+    }
+  }, [filterPeriod, allMatches]);
+
   async function loadData() {
     try {
       const params = {};
-      if (filterWeek) params.week = filterWeek;
       if (filterCategory) params.category_id = filterCategory;
 
       const [matchesRes, groupsRes] = await Promise.all([
         api.get('/matches', { params }),
         api.get('/admin/groups')
       ]);
-      
-      setMatches(matchesRes.data);
+
+      // Store all matches
+      setAllMatches(matchesRes.data);
       setGroups(groupsRes.data);
 
-      // Extract unique weeks
-      const uniqueWeeks = [...new Set(matchesRes.data.map(m => m.week_number))].sort((a, b) => a - b);
-      setWeeks(uniqueWeeks);
+      // Extract unique periods
+      const uniquePeriods = [...new Set(matchesRes.data.map(m => getWeekPeriod(m.week_number)))].sort((a, b) => a - b);
+      setPeriods(uniquePeriods);
+
+      // Filter matches by period if a period is selected
+      if (filterPeriod) {
+        const filteredMatches = matchesRes.data.filter(m => getWeekPeriod(m.week_number) === parseInt(filterPeriod));
+        setMatches(filteredMatches);
+      } else {
+        setMatches(matchesRes.data);
+      }
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -104,7 +163,9 @@ function AdminMatches() {
         player1_id: '',
         player2_id: '',
         match_date: '',
-        week_number: 1
+        week_number: 1,
+        venue: '',
+        match_time: ''
       });
       setGroupPlayers([]);
       loadData();
@@ -159,6 +220,32 @@ function AdminMatches() {
       loadData();
     } catch (error) {
       setError(error.response?.data?.error || 'Skor güncellenemedi');
+    }
+  }
+
+  function handleEditMatch(match) {
+    setEditingMatch(match);
+    setEditData({
+      venue: match.venue || '',
+      match_date: match.match_date,
+      match_time: match.match_time || ''
+    });
+    setError('');
+    setSuccess('');
+  }
+
+  async function submitMatchEdit(e) {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    try {
+      await api.put(`/admin/matches/${editingMatch.id}`, editData);
+      setSuccess('Maç bilgileri güncellendi!');
+      setEditingMatch(null);
+      loadData();
+    } catch (error) {
+      setError(error.response?.data?.error || 'Maç güncellenemedi');
     }
   }
 
@@ -259,6 +346,25 @@ function AdminMatches() {
             </div>
 
             <div className="form-group">
+              <label>Maç Saati (İsteğe Bağlı)</label>
+              <input
+                type="time"
+                value={formData.match_time}
+                onChange={(e) => setFormData({ ...formData, match_time: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Tesis (İsteğe Bağlı)</label>
+              <input
+                type="text"
+                value={formData.venue}
+                onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                placeholder="Örn: Uludağ Tenis Kulübü"
+              />
+            </div>
+
+            <div className="form-group">
               <label>Hafta</label>
               <input
                 type="number"
@@ -278,10 +384,10 @@ function AdminMatches() {
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
           <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
             <label>Hafta Filtrele</label>
-            <select value={filterWeek} onChange={(e) => setFilterWeek(e.target.value)}>
+            <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)}>
               <option value="">Tüm Haftalar</option>
-              {weeks.map(week => (
-                <option key={week} value={week}>Hafta {week}</option>
+              {periods.map(period => (
+                <option key={period} value={period}>{getWeekPeriodLabel(period)}</option>
               ))}
             </select>
           </div>
@@ -322,7 +428,16 @@ function AdminMatches() {
               <tbody>
                 {matches.map((match) => {
                   const hasScore = match.player1_set1 !== null;
-                  
+
+                  // Doubles için partner isimlerini göster
+                  const player1Display = match.is_doubles && match.player1_partner_name
+                    ? `${match.player1_name} / ${match.player1_partner_name}`
+                    : match.player1_name;
+
+                  const player2Display = match.is_doubles && match.player2_partner_name
+                    ? `${match.player2_name} / ${match.player2_partner_name}`
+                    : match.player2_name;
+
                   return (
                     <tr key={match.id}>
                       <td>{new Date(match.match_date).toLocaleDateString('tr-TR')}</td>
@@ -330,8 +445,8 @@ function AdminMatches() {
                       <td>{match.venue || '-'}</td>
                       <td>{match.gender === 'male' ? 'Erkek' : 'Kadın'} - {match.category_name}</td>
                       <td>{match.group_name}</td>
-                      <td>{match.player1_name}</td>
-                      <td>{match.player2_name}</td>
+                      <td>{player1Display}</td>
+                      <td>{player2Display}</td>
                       <td>
                         {hasScore ? (
                           <>
@@ -352,19 +467,26 @@ function AdminMatches() {
                         )}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                           <button
                             className="btn btn-secondary"
                             onClick={() => handleEditScore(match)}
                             style={{ fontSize: '0.875rem', padding: '0.375rem 0.75rem' }}
                           >
-                            {hasScore ? 'Düzenle' : 'Skor Gir'}
+                            {hasScore ? 'Skor Düzenle' : 'Skor Gir'}
+                          </button>
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => handleEditMatch(match)}
+                            style={{ fontSize: '0.875rem', padding: '0.375rem 0.75rem' }}
+                          >
+                            Tarih Planla
                           </button>
                           <button
                             className="btn"
                             onClick={() => handleDeleteMatch(match.id)}
-                            style={{ 
-                              fontSize: '0.875rem', 
+                            style={{
+                              fontSize: '0.875rem',
                               padding: '0.375rem 0.75rem',
                               backgroundColor: '#ef4444',
                               color: 'white'
@@ -530,6 +652,92 @@ function AdminMatches() {
                   type="button"
                   className="btn btn-outline"
                   onClick={() => setSelectedMatch(null)}
+                  style={{ flex: 1 }}
+                >
+                  İptal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Match Edit Modal */}
+      {editingMatch && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            zIndex: 1000
+          }}
+        >
+          <div className="card" style={{ maxWidth: '500px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ marginBottom: '1rem' }}>Maç Tarih ve Tesis Planla</h3>
+            <p style={{ marginBottom: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>
+              {editingMatch.is_doubles ? (
+                <>
+                  {editingMatch.player1_name} / {editingMatch.player1_partner_name}<br />
+                  vs<br />
+                  {editingMatch.player2_name} / {editingMatch.player2_partner_name}
+                </>
+              ) : (
+                <>
+                  {editingMatch.player1_name} vs {editingMatch.player2_name}
+                </>
+              )}
+            </p>
+
+            <form onSubmit={submitMatchEdit}>
+              <div className="form-group">
+                <label>Maç Tarihi</label>
+                <input
+                  type="date"
+                  value={editData.match_date}
+                  onChange={(e) => setEditData({ ...editData, match_date: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Maç Saati</label>
+                <input
+                  type="time"
+                  value={editData.match_time}
+                  onChange={(e) => setEditData({ ...editData, match_time: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Tesis</label>
+                <select
+                  value={editData.venue}
+                  onChange={(e) => setEditData({ ...editData, venue: e.target.value })}
+                  required
+                >
+                  <option value="">Tesis Seçiniz</option>
+                  {venues.map(venue => (
+                    <option key={venue} value={venue}>{venue}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                  Planla
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setEditingMatch(null)}
                   style={{ flex: 1 }}
                 >
                   İptal

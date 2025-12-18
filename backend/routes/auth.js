@@ -9,11 +9,16 @@ const router = express.Router();
 // Login
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    let { username, password } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
+
+    // Normalize username to handle Unicode variations (e.g., combining characters)
+    // NFC (Canonical Decomposition, followed by Canonical Composition) converts
+    // combining characters like "i + combining dot above" to standard characters
+    username = username.normalize('NFC').replace(/\u0307/g, '');
 
     const user = await db.getAsync(
       'SELECT * FROM users WHERE username = ?',
@@ -53,10 +58,16 @@ router.post('/login', async (req, res) => {
 // Get current user
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const user = await db.getAsync(
-      'SELECT id, username, full_name, role FROM users WHERE id = ?',
-      [req.user.id]
-    );
+    const user = await db.getAsync(`
+      SELECT
+        u.id, u.username, u.full_name, u.role, u.phone, u.profile_photo,
+        c.name as category,
+        g.name as group_name
+      FROM users u
+      LEFT JOIN categories c ON u.category_id = c.id
+      LEFT JOIN groups g ON u.group_id = g.id
+      WHERE u.id = ?
+    `, [req.user.id]);
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });

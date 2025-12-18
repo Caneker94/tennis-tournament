@@ -118,7 +118,7 @@ function AdminCategories() {
         <h4 style={{ marginBottom: '0.5rem' }}>Öneri: Standart Kategoriler</h4>
         <p style={{ fontSize: '0.875rem' }}>
           <strong>Erkekler:</strong> Elite, Master, Rising<br />
-          <strong>Kadınlar:</strong> Master, Rising
+          <strong>Kadınlar:</strong> Elite, Rising
         </p>
       </div>
     </div>

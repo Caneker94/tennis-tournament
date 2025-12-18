@@ -2,9 +2,11 @@ import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './utils/AuthContext';
 import Login from './pages/Login';
 import Home from './pages/Home';
+import Rules from './pages/Rules';
 import Schedule from './pages/Schedule';
 import Standings from './pages/Standings';
 import MyMatches from './pages/MyMatches';
+import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
 
 function PrivateRoute({ children, adminOnly = false }) {
@@ -50,10 +52,14 @@ function Layout() {
           <h1>🎾 GMB ENDUSTRI BURSA OPEN</h1>
           <div className="nav-links">
             <Link to="/">Ana Sayfa</Link>
-            <Link to="/schedule">Maç Programı</Link>
+            <Link to="/rules">Turnuva Kuralları</Link>
+            <Link to="/schedule">Günün Maçları</Link>
             <Link to="/standings">Puan Durumu</Link>
             <Link to="/my-matches">Maçlarım</Link>
             {user.role === 'admin' && <Link to="/admin">Admin</Link>}
+            <Link to="/profile" style={{ fontWeight: '600' }}>
+              {user.full_name || user.username}
+            </Link>
             <button onClick={logout} className="btn btn-danger">
               Çıkış
             </button>
@@ -63,9 +69,11 @@ function Layout() {
       <div className="container">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/rules" element={<Rules />} />
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/standings" element={<Standings />} />
           <Route path="/my-matches" element={<MyMatches />} />
+          <Route path="/profile" element={<Profile />} />
           <Route
             path="/admin/*"
             element={

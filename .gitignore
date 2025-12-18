@@ -1,0 +1,17 @@
+# Claude settings
+.claude/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Temp files
+nul
+
+# SSL certificates (should be generated on server)
+*.pem
+*.key
+*.crt
+
+# Deployment scripts are tracked, but backups are not

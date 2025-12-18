@@ -41,10 +41,10 @@ function AdminSponsors() {
           ...formData,
           active: editingSponsor.active
         });
-        setSuccess('Sponsor güncellendi!');
+        setSuccess('Katkı sağlayan güncellendi!');
       } else {
         await api.post('/admin/sponsors', formData);
-        setSuccess('Sponsor eklendi!');
+        setSuccess('Katkı sağlayan eklendi!');
       }
 
       setShowForm(false);
@@ -57,14 +57,14 @@ function AdminSponsors() {
   }
 
   async function handleDelete(id) {
-    if (!confirm('Bu sponsoru silmek istediğinizden emin misiniz?')) return;
+    if (!confirm('Bu katkı sağlayanı silmek istediğinizden emin misiniz?')) return;
 
     try {
       await api.delete(`/admin/sponsors/${id}`);
-      setSuccess('Sponsor silindi!');
+      setSuccess('Katkı sağlayan silindi!');
       loadSponsors();
     } catch (error) {
-      setError('Sponsor silinemedi');
+      setError('Katkı sağlayan silinemedi');
     }
   }
 
@@ -74,7 +74,7 @@ function AdminSponsors() {
         ...sponsor,
         active: sponsor.active ? 0 : 1
       });
-      setSuccess('Sponsor durumu güncellendi!');
+      setSuccess('Katkı sağlayan durumu güncellendi!');
       loadSponsors();
     } catch (error) {
       setError('Durum güncellenemedi');
@@ -105,9 +105,9 @@ function AdminSponsors() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h3>Sponsor Yönetimi</h3>
+        <h3>Katkı Sağlayan Yönetimi</h3>
         <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'İptal' : 'Yeni Sponsor Ekle'}
+          {showForm ? 'İptal' : 'Yeni Katkı Sağlayan Ekle'}
         </button>
       </div>
 
@@ -117,11 +117,11 @@ function AdminSponsors() {
       {showForm && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <h4 style={{ marginBottom: '1rem' }}>
-            {editingSponsor ? 'Sponsor Düzenle' : 'Yeni Sponsor Ekle'}
+            {editingSponsor ? 'Katkı Sağlayan Düzenle' : 'Yeni Katkı Sağlayan Ekle'}
           </h4>
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label>Sponsor Adı</label>
+              <label>Katkı Sağlayan Adı</label>
               <input
                 type="text"
                 value={formData.name}
@@ -184,16 +184,16 @@ function AdminSponsors() {
       )}
 
       <div className="card">
-        <h4 style={{ marginBottom: '1rem' }}>Mevcut Sponsorlar</h4>
+        <h4 style={{ marginBottom: '1rem' }}>Mevcut Katkı Sağlayanlar</h4>
         {sponsors.length === 0 ? (
-          <p>Henüz sponsor eklenmemiş.</p>
+          <p>Henüz katkı sağlayan eklenmemiş.</p>
         ) : (
           <table className="table">
             <thead>
               <tr>
                 <th>Sıra</th>
                 <th>Logo</th>
-                <th>Sponsor Adı</th>
+                <th>Katkı Sağlayan Adı</th>
                 <th>Web Site</th>
                 <th>Durum</th>
                 <th>İşlemler</th>

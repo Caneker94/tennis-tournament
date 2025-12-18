@@ -1,0 +1,58 @@
+# Environment files
+.env
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+
+# Database backups
+tournament_backup*.db
+
+# Password files (sensitive)
+user-passwords.txt
+user-passwords.csv
+admin-token*.txt
+temp-login.json
+new-kadinlar-players.txt
+
+# Development/utility scripts (not needed in production)
+check-*.cjs
+fix-*.cjs
+reset-*.cjs
+setup-*.cjs
+add-*.cjs
+update-*.cjs
+verify-*.cjs
+merge-*.cjs
+find-*.cjs
+replace-*.cjs
+clean-*.cjs
+cleanup-*.cjs
+export-*.cjs
+set-*.cjs
+uppercase-*.cjs
+test-*.cjs
+debug-*.cjs
+list-*.cjs
+create-*.cjs
+recalculate-*.cjs
+assign-*.cjs
+
+# Development data files
+*.csv
+*.txt
+merge-duplicates.json
+
+# Uploads directory (should be on server, not in git)
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# PM2 ecosystem
+ecosystem.config.cjs
+
+# Claude settings
+.claude/

@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/grouped', async (req, res) => {
   try {
     const standings = await db.allAsync(`
-      SELECT 
+      SELECT
         s.*,
         u.full_name as player_name,
         g.name as group_name,
@@ -18,7 +18,14 @@ router.get('/grouped', async (req, res) => {
       JOIN users u ON s.user_id = u.id
       JOIN groups g ON s.group_id = g.id
       JOIN categories c ON g.category_id = c.id
-      ORDER BY c.gender, c.name, g.name
+      ORDER BY
+        CASE
+          WHEN c.name LIKE '%MIX%' THEN 3
+          WHEN c.gender = 'female' THEN 1
+          ELSE 2
+        END,
+        c.name,
+        g.name
     `);
 
     // Group by category and then by group

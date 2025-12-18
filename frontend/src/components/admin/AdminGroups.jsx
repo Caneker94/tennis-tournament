@@ -17,6 +17,8 @@ function AdminGroups() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterGroupName, setFilterGroupName] = useState('');
 
   useEffect(() => {
     loadData();
@@ -72,11 +74,21 @@ function AdminGroups() {
   async function loadGroupPlayers(groupId) {
     try {
       const response = await api.get(`/admin/groups/${groupId}/players`);
-      setGroups(groups.map(g =>
+      const updatedGroups = groups.map(g =>
         g.id === groupId ? { ...g, players: response.data } : g
-      ));
+      );
+      setGroups(updatedGroups);
+
+      // Update selectedGroup if it's the same group
+      if (selectedGroup && selectedGroup.id === groupId) {
+        const updatedGroup = updatedGroups.find(g => g.id === groupId);
+        setSelectedGroup(updatedGroup);
+      }
+
+      return response.data;
     } catch (error) {
       console.error('Failed to load group players:', error);
+      return [];
     }
   }
 
@@ -86,16 +98,25 @@ function AdminGroups() {
     try {
       await api.delete(`/admin/groups/${groupId}/players/${userId}`);
       setSuccess('Oyuncu gruptan çıkarıldı!');
-      loadGroupPlayers(groupId);
+      await loadGroupPlayers(groupId);
     } catch (error) {
       setError('Oyuncu çıkarılamadı');
     }
   }
 
   async function showGroupDetails(group) {
-    setSelectedGroup(group);
-    await loadGroupPlayers(group.id);
+    // Load players first
+    const players = await loadGroupPlayers(group.id);
+    // Then set the selected group with players included
+    setSelectedGroup({ ...group, players });
   }
+
+  // Filter groups
+  const filteredGroups = groups.filter(group => {
+    const matchesCategory = !filterCategory || group.category_id === parseInt(filterCategory);
+    const matchesGroupName = !filterGroupName || group.name.toLowerCase().includes(filterGroupName.toLowerCase());
+    return matchesCategory && matchesGroupName;
+  });
 
   if (loading) {
     return <div className="loading">Yükleniyor...</div>;
@@ -112,6 +133,36 @@ function AdminGroups() {
 
       {error && <div className="error">{error}</div>}
       {success && <div className="success">{success}</div>}
+
+      {/* Filters */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <h4 style={{ marginBottom: '1rem' }}>Filtrele</h4>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>Kategori</label>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="">Tümü</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.gender === 'male' ? 'Erkek' : 'Kadın'} - {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>Grup Adı</label>
+            <input
+              type="text"
+              value={filterGroupName}
+              onChange={(e) => setFilterGroupName(e.target.value)}
+              placeholder="Grup ara..."
+            />
+          </div>
+        </div>
+      </div>
 
       {showForm && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
@@ -148,9 +199,13 @@ function AdminGroups() {
       )}
 
       <div className="card">
-        <h4 style={{ marginBottom: '1rem' }}>Mevcut Gruplar</h4>
+        <h4 style={{ marginBottom: '1rem' }}>
+          Mevcut Gruplar ({filteredGroups.length} / {groups.length})
+        </h4>
         {groups.length === 0 ? (
           <p>Henüz grup oluşturulmamış.</p>
+        ) : filteredGroups.length === 0 ? (
+          <p>Filtreye uygun grup bulunamadı.</p>
         ) : (
           <table className="table">
             <thead>
@@ -159,16 +214,18 @@ function AdminGroups() {
                 <th>Grup Adı</th>
                 <th>Kategori</th>
                 <th>Cinsiyet</th>
+                <th>Oyuncu Sayısı</th>
                 <th>İşlemler</th>
               </tr>
             </thead>
             <tbody>
-              {groups.map((group) => (
+              {filteredGroups.map((group) => (
                 <tr key={group.id}>
                   <td>{group.id}</td>
                   <td>{group.name}</td>
                   <td>{group.category_name}</td>
                   <td>{group.gender === 'male' ? 'Erkek' : 'Kadın'}</td>
+                  <td>{group.player_count || 0} / 8</td>
                   <td>
                     <button
                       className="btn btn-primary"

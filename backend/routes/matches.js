@@ -44,10 +44,10 @@ async function updateStandings(matchId, scoreData) {
   }
 
   if (scoreData.is_walkover) {
-    // Walkover durumu
+    // Walkover durumu - 6-0, 6-0 olarak hesaplanır
     const walkoverPlayerId = scoreData.walkover_player_id;
-    const winnerPlayerId = walkoverPlayerId === match.player1_id 
-      ? match.player2_id 
+    const winnerPlayerId = walkoverPlayerId === match.player1_id
+      ? match.player2_id
       : match.player1_id;
 
     // Maç durumunu güncelle
@@ -56,22 +56,66 @@ async function updateStandings(matchId, scoreData) {
       ['walkover', matchId]
     );
 
-    // Walkover eden oyuncunun standings'ini güncelle (0 puan)
+    // Walkover 6-0, 6-0 olarak hesaplanır
+    // Kazanan: 12 games kazandı, 12 toplam
+    // Walkover yapan: 0 games kazandı, 12 toplam
+    const winnerGamesWon = 12;
+    const walkoverGamesWon = 0;
+    const totalGames = 12;
+
+    // Walkover eden oyuncunun standings'ini güncelle (0 puan, game istatistikleri eklenir)
     await db.runAsync(
-      `UPDATE standings 
-       SET walkovers = walkovers + 1 
+      `UPDATE standings
+       SET walkovers = walkovers + 1,
+           matches_lost = matches_lost + 1,
+           games_won = games_won + ?,
+           games_total = games_total + ?
        WHERE group_id = ? AND user_id = ?`,
-      [match.group_id, walkoverPlayerId]
+      [walkoverGamesWon, totalGames, match.group_id, walkoverPlayerId]
     );
 
-    // Kazanan oyuncunun standings'ini güncelle (3 puan)
+    // Kazanan oyuncunun standings'ini güncelle (3 puan, game istatistikleri eklenir)
     await db.runAsync(
-      `UPDATE standings 
-       SET points = points + 3, 
-           matches_won = matches_won + 1 
+      `UPDATE standings
+       SET points = points + 3,
+           matches_won = matches_won + 1,
+           games_won = games_won + ?,
+           games_total = games_total + ?
        WHERE group_id = ? AND user_id = ?`,
-      [match.group_id, winnerPlayerId]
+      [winnerGamesWon, totalGames, match.group_id, winnerPlayerId]
     );
+
+    // For doubles matches, update partner standings too
+    if (match.is_doubles) {
+      const walkoverPartnerId = walkoverPlayerId === match.player1_id
+        ? match.player1_partner_id
+        : match.player2_partner_id;
+      const winnerPartnerId = walkoverPlayerId === match.player1_id
+        ? match.player2_partner_id
+        : match.player1_partner_id;
+
+      // Walkover eden partnerin standings'ini güncelle (0 puan, game istatistikleri eklenir)
+      await db.runAsync(
+        `UPDATE standings
+         SET walkovers = walkovers + 1,
+             matches_lost = matches_lost + 1,
+             games_won = games_won + ?,
+             games_total = games_total + ?
+         WHERE group_id = ? AND user_id = ?`,
+        [walkoverGamesWon, totalGames, match.group_id, walkoverPartnerId]
+      );
+
+      // Kazanan partnerin standings'ini güncelle (3 puan, game istatistikleri eklenir)
+      await db.runAsync(
+        `UPDATE standings
+         SET points = points + 3,
+             matches_won = matches_won + 1,
+             games_won = games_won + ?,
+             games_total = games_total + ?
+         WHERE group_id = ? AND user_id = ?`,
+        [winnerGamesWon, totalGames, match.group_id, winnerPartnerId]
+      );
+    }
 
     return winnerPlayerId;
   } else {
@@ -155,8 +199,8 @@ async function updateStandings(matchId, scoreData) {
     // Player 2 standings güncelle
     if (winnerId === match.player2_id) {
       await db.runAsync(
-        `UPDATE standings 
-         SET points = points + 3, 
+        `UPDATE standings
+         SET points = points + 3,
              matches_won = matches_won + 1,
              games_won = games_won + ?,
              games_total = games_total + ?
@@ -166,7 +210,7 @@ async function updateStandings(matchId, scoreData) {
     } else if (winnerId === -1) {
       // Berabere
       await db.runAsync(
-        `UPDATE standings 
+        `UPDATE standings
          SET points = points + 1,
              games_won = games_won + ?,
              games_total = games_total + ?
@@ -175,8 +219,8 @@ async function updateStandings(matchId, scoreData) {
       );
     } else {
       await db.runAsync(
-        `UPDATE standings 
-         SET points = points + 1, 
+        `UPDATE standings
+         SET points = points + 1,
              matches_lost = matches_lost + 1,
              games_won = games_won + ?,
              games_total = games_total + ?
@@ -185,17 +229,86 @@ async function updateStandings(matchId, scoreData) {
       );
     }
 
+    // For doubles matches, update partner standings too
+    if (match.is_doubles && match.player1_partner_id && match.player2_partner_id) {
+      // Player 1 Partner standings güncelle
+      if (winnerId === match.player1_id) {
+        await db.runAsync(
+          `UPDATE standings
+           SET points = points + 3,
+               matches_won = matches_won + 1,
+               games_won = games_won + ?,
+               games_total = games_total + ?
+           WHERE group_id = ? AND user_id = ?`,
+          [gameStats.player1.gamesWon, gameStats.player1.gamesTotal, match.group_id, match.player1_partner_id]
+        );
+      } else if (winnerId === -1) {
+        // Berabere
+        await db.runAsync(
+          `UPDATE standings
+           SET points = points + 1,
+               games_won = games_won + ?,
+               games_total = games_total + ?
+           WHERE group_id = ? AND user_id = ?`,
+          [gameStats.player1.gamesWon, gameStats.player1.gamesTotal, match.group_id, match.player1_partner_id]
+        );
+      } else {
+        await db.runAsync(
+          `UPDATE standings
+           SET points = points + 1,
+               matches_lost = matches_lost + 1,
+               games_won = games_won + ?,
+               games_total = games_total + ?
+           WHERE group_id = ? AND user_id = ?`,
+          [gameStats.player1.gamesWon, gameStats.player1.gamesTotal, match.group_id, match.player1_partner_id]
+        );
+      }
+
+      // Player 2 Partner standings güncelle
+      if (winnerId === match.player2_id) {
+        await db.runAsync(
+          `UPDATE standings
+           SET points = points + 3,
+               matches_won = matches_won + 1,
+               games_won = games_won + ?,
+               games_total = games_total + ?
+           WHERE group_id = ? AND user_id = ?`,
+          [gameStats.player2.gamesWon, gameStats.player2.gamesTotal, match.group_id, match.player2_partner_id]
+        );
+      } else if (winnerId === -1) {
+        // Berabere
+        await db.runAsync(
+          `UPDATE standings
+           SET points = points + 1,
+               games_won = games_won + ?,
+               games_total = games_total + ?
+           WHERE group_id = ? AND user_id = ?`,
+          [gameStats.player2.gamesWon, gameStats.player2.gamesTotal, match.group_id, match.player2_partner_id]
+        );
+      } else {
+        await db.runAsync(
+          `UPDATE standings
+           SET points = points + 1,
+               matches_lost = matches_lost + 1,
+               games_won = games_won + ?,
+               games_total = games_total + ?
+           WHERE group_id = ? AND user_id = ?`,
+          [gameStats.player2.gamesWon, gameStats.player2.gamesTotal, match.group_id, match.player2_partner_id]
+        );
+      }
+    }
+
     return winnerId;
   }
 }
 
-// Get all matches (optionally filtered by week)
+// Get all matches (optionally filtered by week and category)
 router.get('/', async (req, res) => {
   try {
-    const { week } = req.query;
-    
+    const { week, category_id } = req.query;
+
     let query = `
-      SELECT 
+      SELECT
         m.*,
         ms.player1_set1,
         ms.player2_set1,
@@ -207,6 +320,8 @@ router.get('/', async (req, res) => {
         ms.walkover_player_id,
         p1.full_name as player1_name,
         p2.full_name as player2_name,
+        p1p.full_name as player1_partner_name,
+        p2p.full_name as player2_partner_name,
         w.full_name as winner_name,
         g.name as group_name,
         c.name as category_name,
@@ -215,20 +330,32 @@ router.get('/', async (req, res) => {
       LEFT JOIN match_scores ms ON m.id = ms.match_id
       JOIN users p1 ON m.player1_id = p1.id
       JOIN users p2 ON m.player2_id = p2.id
+      LEFT JOIN users p1p ON m.player1_partner_id = p1p.id
+      LEFT JOIN users p2p ON m.player2_partner_id = p2p.id
       LEFT JOIN users w ON ms.winner_id = w.id
       JOIN groups g ON m.group_id = g.id
       JOIN categories c ON g.category_id = c.id
     `;
-    
+
     const params = [];
-    
+    const conditions = [];
+
     if (week) {
-      query += ' WHERE m.week_number = ?';
+      conditions.push('m.week_number = ?');
       params.push(week);
     }
-    
-    query += ' ORDER BY m.match_date, g.name';
-    
+
+    if (category_id) {
+      conditions.push('g.category_id = ?');
+      params.push(category_id);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    query += ' ORDER BY m.match_date, m.match_time, g.name';
+
     const matches = await db.allAsync(query, params);
     res.json(matches);
   } catch (error) {
@@ -243,7 +370,7 @@ router.get('/my-matches', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     
     const matches = await db.allAsync(`
-      SELECT 
+      SELECT
         m.*,
         ms.player1_set1,
         ms.player2_set1,
@@ -259,6 +386,10 @@ router.get('/my-matches', authenticateToken, async (req, res) => {
         p1.phone as player1_phone,
         p2.full_name as player2_name,
         p2.phone as player2_phone,
+        p1p.full_name as player1_partner_name,
+        p1p.phone as player1_partner_phone,
+        p2p.full_name as player2_partner_name,
+        p2p.phone as player2_partner_phone,
         w.full_name as winner_name,
         g.name as group_name,
         c.name as category_name,
@@ -267,12 +398,14 @@ router.get('/my-matches', authenticateToken, async (req, res) => {
       LEFT JOIN match_scores ms ON m.id = ms.match_id
       JOIN users p1 ON m.player1_id = p1.id
       JOIN users p2 ON m.player2_id = p2.id
+      LEFT JOIN users p1p ON m.player1_partner_id = p1p.id
+      LEFT JOIN users p2p ON m.player2_partner_id = p2p.id
       LEFT JOIN users w ON ms.winner_id = w.id
       JOIN groups g ON m.group_id = g.id
       JOIN categories c ON g.category_id = c.id
-      WHERE m.player1_id = ? OR m.player2_id = ?
-      ORDER BY m.week_number, m.match_date
-    `, [userId, userId]);
+      WHERE m.player1_id = ? OR m.player2_id = ? OR m.player1_partner_id = ? OR m.player2_partner_id = ?
+      ORDER BY m.week_number, m.match_date, m.match_time
+    `, [userId, userId, userId, userId]);
     
     res.json(matches);
   } catch (error) {
@@ -281,17 +414,17 @@ router.get('/my-matches', authenticateToken, async (req, res) => {
   }
 });
 
-// Schedule a match (set date and venue)
+// Schedule a match (set date, time and venue)
 router.put('/:id/schedule', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { match_date, venue } = req.body;
+    const { match_date, match_time, venue } = req.body;
     const userId = req.user.id;
 
-    // Verify user is part of this match
+    // Verify user is part of this match (including as a partner)
     const match = await db.getAsync(
-      'SELECT * FROM matches WHERE id = ? AND (player1_id = ? OR player2_id = ?)',
-      [id, userId, userId]
+      'SELECT * FROM matches WHERE id = ? AND (player1_id = ? OR player2_id = ? OR player1_partner_id = ? OR player2_partner_id = ?)',
+      [id, userId, userId, userId, userId]
     );
 
     if (!match) {
@@ -299,8 +432,8 @@ router.put('/:id/schedule', authenticateToken, async (req, res) => {
     }
 
     await db.runAsync(
-      'UPDATE matches SET match_date = ?, venue = ?, scheduled_by = ? WHERE id = ?',
-      [match_date, venue, userId, id]
+      'UPDATE matches SET match_date = ?, match_time = ?, venue = ?, scheduled_by = ? WHERE id = ?',
+      [match_date, match_time, venue, userId, id]
     );
 
     res.json({ message: 'Match scheduled successfully' });
@@ -317,10 +450,10 @@ router.post('/:id/score', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const scoreData = req.body;
 
-    // Verify user is part of this match
+    // Verify user is part of this match (including doubles partners)
     const match = await db.getAsync(
-      'SELECT * FROM matches WHERE id = ? AND (player1_id = ? OR player2_id = ?)',
-      [id, userId, userId]
+      'SELECT * FROM matches WHERE id = ? AND (player1_id = ? OR player2_id = ? OR player1_partner_id = ? OR player2_partner_id = ?)',
+      [id, userId, userId, userId, userId]
     );
 
     if (!match) {
@@ -343,17 +476,28 @@ router.post('/:id/score', authenticateToken, async (req, res) => {
       const walkoverPlayerId = scoreData.walkover_player_id;
       winnerId = walkoverPlayerId === match.player1_id ? match.player2_id : match.player1_id;
 
-      // Insert walkover score
+      // Walkover skorunu 6-0, 6-0 olarak kaydet
+      const winnerIsPlayer1 = winnerId === match.player1_id;
+      const player1Set1 = winnerIsPlayer1 ? 6 : 0;
+      const player2Set1 = winnerIsPlayer1 ? 0 : 6;
+      const player1Set2 = winnerIsPlayer1 ? 6 : 0;
+      const player2Set2 = winnerIsPlayer1 ? 0 : 6;
+
+      // Insert walkover score with 6-0, 6-0
       await db.runAsync(`
         INSERT INTO match_scores (
-          match_id, 
-          winner_id, 
-          walkover_player_id, 
+          match_id,
+          player1_set1,
+          player2_set1,
+          player1_set2,
+          player2_set2,
+          winner_id,
+          walkover_player_id,
           submitted_by,
           approval_status
         )
-        VALUES (?, ?, ?, ?, 'approved')
-      `, [id, winnerId, walkoverPlayerId, userId]);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved')
+      `, [id, player1Set1, player2Set1, player1Set2, player2Set2, winnerId, walkoverPlayerId, userId]);
 
       // Update standings
       await updateStandings(id, scoreData);
@@ -444,12 +588,21 @@ router.put('/:id/score/approve', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Score already approved' });
     }
 
-    // Verify user is the opponent or admin
-    const isOpponent = (score.submitted_by === match.player1_id && userId === match.player2_id) ||
-                      (score.submitted_by === match.player2_id && userId === match.player1_id);
-    
+    // Verify user is from the opponent team or admin
+    // Determine which team submitted the score
+    const submitterInTeam1 = score.submitted_by === match.player1_id ||
+                             (match.player1_partner_id && score.submitted_by === match.player1_partner_id);
+    const submitterInTeam2 = score.submitted_by === match.player2_id ||
+                             (match.player2_partner_id && score.submitted_by === match.player2_partner_id);
+
+    // Check if current user is in opponent team
+    const userInTeam1 = userId === match.player1_id || (match.player1_partner_id && userId === match.player1_partner_id);
+    const userInTeam2 = userId === match.player2_id || (match.player2_partner_id && userId === match.player2_partner_id);
+
+    const isOpponent = (submitterInTeam1 && userInTeam2) || (submitterInTeam2 && userInTeam1);
+
     if (!isOpponent && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Only the opponent or admin can approve the score' });
+      return res.status(403).json({ error: 'Only someone from the opponent team or admin can approve the score' });
     }
 
     // Approve score

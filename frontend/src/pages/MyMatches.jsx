@@ -4,9 +4,29 @@ import api from '../utils/api';
 
 function ScheduleModal({ scheduleMatch, scheduleData, setScheduleData, submitSchedule, setScheduleMatch, getDateRangeForMatch, venues, user }) {
   const dateRange = getDateRangeForMatch(scheduleMatch);
-  const isPlayer1 = scheduleMatch.player1_id === user.id;
-  const opponentName = isPlayer1 ? scheduleMatch.player2_name : scheduleMatch.player1_name;
-  const opponentPhone = isPlayer1 ? scheduleMatch.player2_phone : scheduleMatch.player1_phone;
+  const isPlayer1 = scheduleMatch.player1_id === user.id || scheduleMatch.player1_partner_id === user.id;
+
+  let team1Name, team2Name, opponentName, opponentPhone;
+  if (scheduleMatch.is_doubles) {
+    team1Name = `${scheduleMatch.player1_name} / ${scheduleMatch.player1_partner_name}`;
+    team2Name = `${scheduleMatch.player2_name} / ${scheduleMatch.player2_partner_name}`;
+    opponentName = isPlayer1 ? team2Name : team1Name;
+    // Combine both phone numbers for doubles
+    if (isPlayer1) {
+      const phone1 = scheduleMatch.player2_phone || '-';
+      const phone2 = scheduleMatch.player2_partner_phone || '-';
+      opponentPhone = `${phone1} / ${phone2}`;
+    } else {
+      const phone1 = scheduleMatch.player1_phone || '-';
+      const phone2 = scheduleMatch.player1_partner_phone || '-';
+      opponentPhone = `${phone1} / ${phone2}`;
+    }
+  } else {
+    team1Name = scheduleMatch.player1_name;
+    team2Name = scheduleMatch.player2_name;
+    opponentName = isPlayer1 ? scheduleMatch.player2_name : scheduleMatch.player1_name;
+    opponentPhone = isPlayer1 ? scheduleMatch.player2_phone : scheduleMatch.player1_phone;
+  }
 
   return (
     <div
@@ -27,7 +47,7 @@ function ScheduleModal({ scheduleMatch, scheduleData, setScheduleData, submitSch
       <div className="card" style={{ maxWidth: '500px', width: '100%' }}>
         <h3 style={{ marginBottom: '1rem' }}>Maç Tarih ve Tesis Planla</h3>
         <p style={{ marginBottom: '0.5rem' }}>
-          {scheduleMatch.player1_name} vs {scheduleMatch.player2_name}
+          {team1Name} vs {team2Name}
         </p>
         {opponentPhone && (
           <p style={{ marginBottom: '0.5rem', fontSize: '0.875rem', color: '#059669', fontWeight: '500' }}>
@@ -48,6 +68,16 @@ function ScheduleModal({ scheduleMatch, scheduleData, setScheduleData, submitSch
               onChange={(e) => setScheduleData({ ...scheduleData, match_date: e.target.value })}
               min={dateRange.min}
               max={dateRange.max}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Maç Saati</label>
+            <input
+              type="time"
+              value={scheduleData.match_time}
+              onChange={(e) => setScheduleData({ ...scheduleData, match_time: e.target.value })}
               required
             />
           </div>
@@ -90,8 +120,10 @@ function MyMatches() {
   const [loading, setLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [scheduleMatch, setScheduleMatch] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [scheduleData, setScheduleData] = useState({
     match_date: '',
+    match_time: '',
     venue: ''
   });
   const [scoreData, setScoreData] = useState({
@@ -108,7 +140,21 @@ function MyMatches() {
   const [success, setSuccess] = useState('');
   const { user } = useAuth();
 
-  const venues = ['Unisport', 'Aslanlar', 'Podyum', 'Park Akademi', 'Evrensel', 'Yenigün'];
+  const venues = [
+    'Unisport',
+    'Aslanlar',
+    'Podyum',
+    'Park Akademi',
+    'Evrensel',
+    'Yenigün',
+    'Gd Sport Academy',
+    'Esas',
+    'Meşelipark',
+    'Gümüş Raket',
+    'Altınşehir',
+    'Şahinkaya',
+    'Diğer'
+  ];
 
   useEffect(() => {
     loadMyMatches();
@@ -129,6 +175,7 @@ function MyMatches() {
     setScheduleMatch(match);
     setScheduleData({
       match_date: match.match_date ? match.match_date.split('T')[0] : '',
+      match_time: match.match_time || '',
       venue: match.venue || ''
     });
     setError('');
@@ -136,21 +183,36 @@ function MyMatches() {
   }
 
   function getWeekLabel(weekNumber) {
-    const labels = {
-      1: 'Hafta 1-2',
-      2: 'Hafta 3-4',
-      3: 'Hafta 5-6',
-      4: 'Hafta 7'
-    };
-    return labels[weekNumber] || `Hafta ${weekNumber}`;
+    // Map actual week numbers (1-7) to period labels
+    if (weekNumber === 1 || weekNumber === 2) {
+      return 'Hafta 1-2';
+    } else if (weekNumber === 3 || weekNumber === 4) {
+      return 'Hafta 3-4';
+    } else if (weekNumber === 5 || weekNumber === 6) {
+      return 'Hafta 5-6';
+    } else if (weekNumber === 7) {
+      return 'Hafta 7';
+    }
+    return `Hafta ${weekNumber}`;
   }
 
   function getDateRangeForMatch(match) {
     const tournamentStart = new Date('2025-12-15');
 
-    // Dönem belirleme (match.week_number artık dönem numarası: 1, 2, 3, 4)
+    // Hafta numarasını (1-7) döneme (1-4) çevir
+    let periodNumber;
+    const weekNumber = match.week_number;
+    if (weekNumber === 1 || weekNumber === 2) {
+      periodNumber = 1;
+    } else if (weekNumber === 3 || weekNumber === 4) {
+      periodNumber = 2;
+    } else if (weekNumber === 5 || weekNumber === 6) {
+      periodNumber = 3;
+    } else {
+      periodNumber = 4;
+    }
+
     let periodStart, periodEnd;
-    const periodNumber = match.week_number;
 
     if (periodNumber === 1) {
       // Dönem 1: Hafta 1-2
@@ -271,6 +333,14 @@ function MyMatches() {
     }
   }
 
+  // Get unique categories from matches
+  const categories = [...new Set(matches.map(m => m.category_name))].sort();
+
+  // Filter matches by selected category
+  const filteredMatches = selectedCategory
+    ? matches.filter(m => m.category_name === selectedCategory)
+    : matches;
+
   if (loading) {
     return <div className="loading">Yükleniyor...</div>;
   }
@@ -282,9 +352,38 @@ function MyMatches() {
       {success && <div className="success">{success}</div>}
       {error && <div className="error">{error}</div>}
 
-      {matches.length === 0 ? (
+      {/* Category Filter */}
+      {matches.length > 0 && categories.length > 1 && (
+        <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <strong style={{ marginRight: '0.5rem' }}>Kategori:</strong>
+            <button
+              className={selectedCategory === '' ? 'btn btn-primary' : 'btn btn-outline'}
+              onClick={() => setSelectedCategory('')}
+              style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+            >
+              Tümü ({matches.length})
+            </button>
+            {categories.map(category => {
+              const count = matches.filter(m => m.category_name === category).length;
+              return (
+                <button
+                  key={category}
+                  className={selectedCategory === category ? 'btn btn-primary' : 'btn btn-outline'}
+                  onClick={() => setSelectedCategory(category)}
+                  style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                >
+                  {category} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {filteredMatches.length === 0 ? (
         <div className="card">
-          <p>Henüz maçınız bulunmamaktadır.</p>
+          <p>{selectedCategory ? `${selectedCategory} kategorisinde maçınız bulunmamaktadır.` : 'Henüz maçınız bulunmamaktadır.'}</p>
         </div>
       ) : (
         <table className="table">
@@ -304,10 +403,34 @@ function MyMatches() {
             </tr>
           </thead>
           <tbody>
-            {matches.map((match) => {
-              const isPlayer1 = match.player1_id === user.id;
-              const opponentName = isPlayer1 ? match.player2_name : match.player1_name;
-              const opponentPhone = isPlayer1 ? match.player2_phone : match.player1_phone;
+            {filteredMatches.map((match) => {
+              const isPlayer1 = match.player1_id === user.id || match.player1_partner_id === user.id;
+
+              // For doubles matches, show team names
+              let myTeamName, opponentTeamName, opponentPhone;
+              if (match.is_doubles) {
+                if (isPlayer1) {
+                  myTeamName = `${match.player1_name} / ${match.player1_partner_name}`;
+                  opponentTeamName = `${match.player2_name} / ${match.player2_partner_name}`;
+                  // Combine both phone numbers for doubles
+                  const phone1 = match.player2_phone || '-';
+                  const phone2 = match.player2_partner_phone || '-';
+                  opponentPhone = `${phone1} / ${phone2}`;
+                } else {
+                  myTeamName = `${match.player2_name} / ${match.player2_partner_name}`;
+                  opponentTeamName = `${match.player1_name} / ${match.player1_partner_name}`;
+                  // Combine both phone numbers for doubles
+                  const phone1 = match.player1_phone || '-';
+                  const phone2 = match.player1_partner_phone || '-';
+                  opponentPhone = `${phone1} / ${phone2}`;
+                }
+              } else {
+                const opponentName = isPlayer1 ? match.player2_name : match.player1_name;
+                myTeamName = isPlayer1 ? match.player1_name : match.player2_name;
+                opponentTeamName = opponentName;
+                opponentPhone = isPlayer1 ? match.player2_phone : match.player1_phone;
+              }
+
               const hasScore = match.player1_set1 !== null;
               const result = getMatchResult(match);
               const dateRange = getDateRangeForMatch(match);
@@ -332,7 +455,16 @@ function MyMatches() {
                     )}
                   </td>
                   <td>{match.venue || '-'}</td>
-                  <td>{opponentName}</td>
+                  <td>
+                    {match.is_doubles ? (
+                      <div style={{ fontSize: '0.875rem' }}>
+                        <div style={{ fontWeight: '600', color: '#059669' }}>Rakip Takım:</div>
+                        <div>{opponentTeamName}</div>
+                      </div>
+                    ) : (
+                      opponentTeamName
+                    )}
+                  </td>
                   <td>{opponentPhone || '-'}</td>
                   <td>{match.group_name}</td>
                   <td>{match.gender === 'male' ? 'Erkek' : 'Kadın'} - {match.category_name}</td>
@@ -341,6 +473,7 @@ function MyMatches() {
                       <>
                         {match.player1_set1}-{match.player2_set1}, {match.player1_set2}-{match.player2_set2}
                         {match.super_tiebreak_p1 !== null && ` (ST: ${match.super_tiebreak_p1}-${match.super_tiebreak_p2})`}
+                        {match.status === 'walkover' && ' ALARAK'}
                       </>
                     ) : (
                       '-'
@@ -348,8 +481,8 @@ function MyMatches() {
                   </td>
                   <td>
                     {result ? (
-                      <span style={{ 
-                        padding: '0.25rem 0.75rem', 
+                      <span style={{
+                        padding: '0.25rem 0.75rem',
                         borderRadius: '0.375rem',
                         backgroundColor: result.bgColor,
                         color: result.color,
@@ -363,9 +496,7 @@ function MyMatches() {
                     )}
                   </td>
                   <td>
-                    {match.status === 'walkover' ? (
-                      'Walkover'
-                    ) : hasScore ? (
+                    {hasScore ? (
                       match.approval_status === 'pending' ? (
                         <span style={{
                           padding: '0.25rem 0.75rem',
@@ -394,29 +525,47 @@ function MyMatches() {
                     )}
                   </td>
                   <td>
-                    {hasScore && match.approval_status === 'pending' && (match.submitted_by !== user.id || user.role === 'admin') ? (
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => approveScore(match.id)}
-                      >
-                        Skoru Onayla
-                      </button>
-                    ) : !hasScore && match.status !== 'walkover' ? (
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          className="btn btn-secondary"
-                          onClick={() => handleScheduleMatch(match)}
-                        >
-                          Tarih Planla
-                        </button>
-                        <button
-                          className="btn btn-primary"
-                          onClick={() => handleScoreSubmit(match)}
-                        >
-                          Skor Gir
-                        </button>
-                      </div>
-                    ) : null}
+                    {(() => {
+                      // Determine if current user is on the same team as the submitter
+                      const currentUserIsTeam1 = match.player1_id === user.id || match.player1_partner_id === user.id;
+                      const submitterIsTeam1 = match.submitted_by === match.player1_id || match.submitted_by === match.player1_partner_id;
+                      const sameTeamAsSubmitter = currentUserIsTeam1 === submitterIsTeam1;
+
+                      // Can approve only if: score exists, pending, not submitter, not same team (or admin)
+                      const canApprove = hasScore &&
+                                        match.approval_status === 'pending' &&
+                                        match.submitted_by !== user.id &&
+                                        (!sameTeamAsSubmitter || user.role === 'admin');
+
+                      if (canApprove) {
+                        return (
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => approveScore(match.id)}
+                          >
+                            Skoru Onayla
+                          </button>
+                        );
+                      } else if (!hasScore && match.status !== 'walkover') {
+                        return (
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                              className="btn btn-secondary"
+                              onClick={() => handleScheduleMatch(match)}
+                            >
+                              Tarih Planla
+                            </button>
+                            <button
+                              className="btn btn-primary"
+                              onClick={() => handleScoreSubmit(match)}
+                            >
+                              Skor Gir
+                            </button>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </td>
                 </tr>
               );
@@ -443,7 +592,17 @@ function MyMatches() {
           <div className="card" style={{ maxWidth: '500px', width: '100%' }}>
             <h3 style={{ marginBottom: '1rem' }}>Skor Gir</h3>
             <p style={{ marginBottom: '1rem' }}>
-              {selectedMatch.player1_name} vs {selectedMatch.player2_name}
+              {selectedMatch.is_doubles ? (
+                <>
+                  {selectedMatch.player1_name} / {selectedMatch.player1_partner_name}
+                  {' vs '}
+                  {selectedMatch.player2_name} / {selectedMatch.player2_partner_name}
+                </>
+              ) : (
+                <>
+                  {selectedMatch.player1_name} vs {selectedMatch.player2_name}
+                </>
+              )}
             </p>
 
             <form onSubmit={submitScore}>
@@ -474,8 +633,16 @@ function MyMatches() {
                     required
                   >
                     <option value="">Seçiniz</option>
-                    <option value={selectedMatch.player1_id}>{selectedMatch.player1_name}</option>
-                    <option value={selectedMatch.player2_id}>{selectedMatch.player2_name}</option>
+                    <option value={selectedMatch.player1_id}>
+                      {selectedMatch.is_doubles && selectedMatch.player1_partner_name
+                        ? `${selectedMatch.player1_name} / ${selectedMatch.player1_partner_name}`
+                        : selectedMatch.player1_name}
+                    </option>
+                    <option value={selectedMatch.player2_id}>
+                      {selectedMatch.is_doubles && selectedMatch.player2_partner_name
+                        ? `${selectedMatch.player2_name} / ${selectedMatch.player2_partner_name}`
+                        : selectedMatch.player2_name}
+                    </option>
                   </select>
                 </div>
               ) : (
@@ -484,7 +651,11 @@ function MyMatches() {
                     <label>1. Set</label>
                     <div className="score-input">
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>{selectedMatch.player1_name}</label>
+                        <label style={{ fontSize: '0.875rem' }}>
+                          {selectedMatch.is_doubles && selectedMatch.player1_partner_name
+                            ? `${selectedMatch.player1_name} / ${selectedMatch.player1_partner_name}`
+                            : selectedMatch.player1_name}
+                        </label>
                         <input
                           type="number"
                           min="0"
@@ -495,7 +666,11 @@ function MyMatches() {
                       </div>
                       <span>-</span>
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>{selectedMatch.player2_name}</label>
+                        <label style={{ fontSize: '0.875rem' }}>
+                          {selectedMatch.is_doubles && selectedMatch.player2_partner_name
+                            ? `${selectedMatch.player2_name} / ${selectedMatch.player2_partner_name}`
+                            : selectedMatch.player2_name}
+                        </label>
                         <input
                           type="number"
                           min="0"
@@ -511,7 +686,11 @@ function MyMatches() {
                     <label>2. Set</label>
                     <div className="score-input">
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>{selectedMatch.player1_name}</label>
+                        <label style={{ fontSize: '0.875rem' }}>
+                          {selectedMatch.is_doubles && selectedMatch.player1_partner_name
+                            ? `${selectedMatch.player1_name} / ${selectedMatch.player1_partner_name}`
+                            : selectedMatch.player1_name}
+                        </label>
                         <input
                           type="number"
                           min="0"
@@ -522,7 +701,11 @@ function MyMatches() {
                       </div>
                       <span>-</span>
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>{selectedMatch.player2_name}</label>
+                        <label style={{ fontSize: '0.875rem' }}>
+                          {selectedMatch.is_doubles && selectedMatch.player2_partner_name
+                            ? `${selectedMatch.player2_name} / ${selectedMatch.player2_partner_name}`
+                            : selectedMatch.player2_name}
+                        </label>
                         <input
                           type="number"
                           min="0"
@@ -538,7 +721,11 @@ function MyMatches() {
                     <label>Süper Tie Break (isteğe bağlı)</label>
                     <div className="score-input">
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>{selectedMatch.player1_name}</label>
+                        <label style={{ fontSize: '0.875rem' }}>
+                          {selectedMatch.is_doubles && selectedMatch.player1_partner_name
+                            ? `${selectedMatch.player1_name} / ${selectedMatch.player1_partner_name}`
+                            : selectedMatch.player1_name}
+                        </label>
                         <input
                           type="number"
                           min="0"
@@ -548,7 +735,11 @@ function MyMatches() {
                       </div>
                       <span>-</span>
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>{selectedMatch.player2_name}</label>
+                        <label style={{ fontSize: '0.875rem' }}>
+                          {selectedMatch.is_doubles && selectedMatch.player2_partner_name
+                            ? `${selectedMatch.player2_name} / ${selectedMatch.player2_partner_name}`
+                            : selectedMatch.player2_name}
+                        </label>
                         <input
                           type="number"
                           min="0"

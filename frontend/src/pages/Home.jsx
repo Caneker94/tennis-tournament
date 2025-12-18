@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../utils/AuthContext';
 import api from '../utils/api';
 
 function Home() {
+  const { user } = useAuth();
   const [sponsors, setSponsors] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,24 +24,65 @@ function Home() {
 
   return (
     <div>
-      {sponsors.length > 0 && (
-        <div className="sponsor-slider">
-          <h2>Sponsorlarımız</h2>
-          <div className="sponsors-grid">
-            {sponsors.map((sponsor) => (
-              <div key={sponsor.id} className="sponsor-item">
-                {sponsor.link_url ? (
-                  <a href={sponsor.link_url} target="_blank" rel="noopener noreferrer">
-                    <img src={sponsor.logo_url} alt={sponsor.name} />
-                  </a>
-                ) : (
-                  <img src={sponsor.logo_url} alt={sponsor.name} />
-                )}
-              </div>
-            ))}
-          </div>
+      {user && (
+        <div className="card" style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          marginBottom: '1.5rem',
+          padding: '1.5rem'
+        }}>
+          <h2 style={{ margin: 0, fontSize: '1.5rem', color: 'white' }}>
+            Hoş Geldiniz, {user.full_name || user.username}!
+          </h2>
+          <p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>
+            GMB Endüstri Bursa Open Turnuvasına katılımınız için teşekkür ederiz.
+          </p>
         </div>
       )}
+      {sponsors.length > 0 && (() => {
+        const mainSponsor = sponsors.find(s => s.display_order === 0);
+        const secondarySponsors = sponsors.filter(s => s.display_order > 0);
+
+        return (
+          <div className="sponsor-slider">
+            <h2>Katkı Sağlayanlarımız</h2>
+
+            {/* Ana Katkı Sağlayan */}
+            {mainSponsor && (
+              <div className="main-sponsor">
+                <h3>Ana Katkı Sağlayanımız</h3>
+                {mainSponsor.link_url ? (
+                  <a href={mainSponsor.link_url} target="_blank" rel="noopener noreferrer">
+                    <img src={mainSponsor.logo_url} alt={mainSponsor.name} />
+                  </a>
+                ) : (
+                  <img src={mainSponsor.logo_url} alt={mainSponsor.name} />
+                )}
+              </div>
+            )}
+
+            {/* Destekleyenler */}
+            {secondarySponsors.length > 0 && (
+              <div className="secondary-sponsors">
+                <h3>Destekleyenler</h3>
+                <div className="secondary-sponsors-grid">
+                  {secondarySponsors.map((sponsor) => (
+                    <div key={sponsor.id} className="secondary-sponsor-item">
+                      {sponsor.link_url ? (
+                        <a href={sponsor.link_url} target="_blank" rel="noopener noreferrer">
+                          <img src={sponsor.logo_url} alt={sponsor.name} />
+                        </a>
+                      ) : (
+                        <img src={sponsor.logo_url} alt={sponsor.name} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="card">
         <h2>Turnuva Hakkında</h2>
@@ -59,7 +102,7 @@ function Home() {
 
           <h4 style={{ marginTop: '1rem' }}>Kadınlar:</h4>
           <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
-            <li>Master</li>
+            <li>Elite</li>
             <li>Rising</li>
           </ul>
         </div>
